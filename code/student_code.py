@@ -58,11 +58,22 @@ class CustomConv2DFunction(Function):
         #################################################################################
         # Fill in the code here
         #################################################################################
+        kernel_size = weight.size()[2:]
+        input_feats_unfold = unfold(input_feats, kernel_size=kernel_size, padding=padding, stride=stride)
+        weight_unfold = weight.view(weight.size(0), -1)
+
+        out_unfold = input_feats_unfold.transpose(1,2).matmul(weight_unfold.t()).transpose(1,2)
+        bias_unfold = bias.expand(out_unfold.size()[:2]).unsqueeze(2).expand(out_unfold.size())
+
+        out_dim1 = ((ctx.input_height + 2 * ctx.padding - kernel_size)/stride)+1
+        out_dim2 = ((ctx.input_width + 2 * ctx.padding - kernel_size)/stride)+1
+        
+        out_fold = fold(out_unfold+bias_unfold, output_size=(out_dim1, out_dim2), kernel_size=(1,1), stride=1)
 
         # save for backward (you need to save the unfolded tensor into ctx)
         # ctx.save_for_backward(your_vars, weight, bias)
 
-        return output
+        return out_fold
 
     @staticmethod
     def backward(ctx, grad_output):
