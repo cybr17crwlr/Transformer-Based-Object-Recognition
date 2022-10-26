@@ -59,10 +59,23 @@ class CustomConv2DFunction(Function):
         # Fill in the code here
         #################################################################################
 
+        input_feats_unfold = unfold(input_feats, kernel_size=(kernel_size,kernel_size), padding=padding, stride=stride)
+        weight_unfold = weight.view(weight.size(0), -1)
+
+        out_unfold = input_feats_unfold.transpose(1,2).matmul(weight_unfold.t()).transpose(1,2)
+        bias_unfold = bias.expand(out_unfold.size()[:2]).unsqueeze(2).expand(out_unfold.size())
+        out_unfold = out_unfold+bias_unfold
+
+        out_dim1 = ((ctx.input_height + 2 * ctx.padding - kernel_size)//stride)+1
+        out_dim2 = ((ctx.input_width + 2 * ctx.padding - kernel_size)//stride)+1
+
+        out_fold = fold(out_unfold, output_size=(out_dim1, out_dim2), kernel_size=(1,1), stride=1)
+
         # save for backward (you need to save the unfolded tensor into ctx)
         # ctx.save_for_backward(your_vars, weight, bias)
+        ctx.save_for_backward(input_feats_unfold, weight_unfold, weight, bias)
 
-        return output
+        return out_fold
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -79,7 +92,7 @@ class CustomConv2DFunction(Function):
 
         """
         # unpack tensors and initialize the grads
-        # your_vars, weight, bias = ctx.saved_tensors
+        input_feats_unfold, weight_unfold, weight, bias = ctx.saved_tensors
         grad_input = grad_weight = grad_bias = None
 
         # recover the conv params
@@ -93,6 +106,13 @@ class CustomConv2DFunction(Function):
         # Fill in the code here
         #################################################################################
         # compute the gradients w.r.t. input and params
+        grad_output_unfold = unfold(grad_output, kernel_size=(1,1), stride=1)
+
+        grad_input_unfold = grad_output_unfold.transpose(1,2).matmul(weight_unfold).transpose(1,2)
+        grad_input = fold(grad_input_unfold,output_size=(input_height,input_width),kernel_size=(kernel_size,kernel_size),padding=padding,stride=stride)
+
+        grad_weight_unfold = input_feats_unfold.matmul(grad_output_unfold.transpose(1,2)).transpose(1,2)
+        grad_weight = grad_weight_unfold.sum((0)).view(grad_weight_unfold.size(1),-1,kernel_size,kernel_size)
 
         if bias is not None and ctx.needs_input_grad[2]:
             # compute the gradients w.r.t. bias (if any)
