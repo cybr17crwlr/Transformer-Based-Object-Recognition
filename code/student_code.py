@@ -348,8 +348,9 @@ class SimpleViT(nn.Module):
         # Fill in the code here
         ########################################################################
         x = self.embed_layer(x)
-        pos_embed = self.pos_embed.expand(x.size())
-        x = x+pos_embed
+        if self.pos_embed is not None:
+            pos_embed = self.pos_embed.expand(x.size())
+            x = x+pos_embed
         x = self.transformers(x)
         x = self.avgpool(x)
         x = x.view(x.size(0),-1)
