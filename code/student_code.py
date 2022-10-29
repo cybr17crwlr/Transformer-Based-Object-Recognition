@@ -472,8 +472,20 @@ class GradAttention(object):
         #################################################################################
         # Fill in the code here
         #################################################################################
+        for params in model.parameters():
+            params.requires_grad = False
 
-        return output
+        model.eval()
+
+        softmax_conf = model(input)
+        most_conf = softmax_conf.argmax(1)
+
+        most_conf_loss = self.loss_fn(softmax_conf,most_conf)
+        most_conf_loss.backward()
+
+        saliency, _ = input.grad.data.abs().max(1)
+
+        return saliency.unsqueeze(1)
 
 
 default_attention = GradAttention
