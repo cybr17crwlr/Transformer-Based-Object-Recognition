@@ -474,7 +474,7 @@ class GradAttention(object):
         #################################################################################
         for params in model.parameters():
             params.requires_grad = False
-            param.grad.zero_()
+            params.grad.zero_()
 
         model.eval()
 
