@@ -310,6 +310,23 @@ class SimpleViT(nn.Module):
         ########################################################################
         # the implementation shall start from embedding patches,
         # followed by some transformer blocks
+        self.embed_layer = PatchEmbed(kernel_size=(patch_size,patch_size),
+                                      stride=(patch_size,patch_size),
+                                      in_chans=in_chans,
+                                      embed_dim=embed_dim)
+
+        transformer_seq = [TransformerBlock(dim=embed_dim,
+                                            num_heads=num_heads,
+                                            mlp_ratio=mlp_ratio,
+                                            qkv_bias=qkv_bias,
+                                            drop_path=drop_path_,
+                                            norm_layer=norm_layer,
+                                            act_layer=act_layer,
+                                            window_size=window_size) for drop_path_ in dpr]
+        self.transformers = torch.nn.Sequential(*transformer_seq)
+
+        self.avgpool = nn.AdaptiveAvgPool3d((1, 1, embed_dim))
+        self.fc = nn.Linear(embed_dim, num_classes)
 
         if self.pos_embed is not None:
             trunc_normal_(self.pos_embed, std=0.02)
@@ -330,6 +347,14 @@ class SimpleViT(nn.Module):
         ########################################################################
         # Fill in the code here
         ########################################################################
+        x = self.embed_layer(x)
+        if self.pos_embed is not None:
+            pos_embed = self.pos_embed.expand(x.size())
+            x = x+pos_embed
+        x = self.transformers(x)
+        x = self.avgpool(x)
+        x = x.view(x.size(0),-1)
+        x = self.fc(x)
         return x
 
 
