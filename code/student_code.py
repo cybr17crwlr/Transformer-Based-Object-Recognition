@@ -429,10 +429,28 @@ class PGDAttack(object):
         input.requires_grad = False
 
         # loop over the number of steps
-        # for _ in range(self.num_steps):
         #################################################################################
         # Fill in the code here
         #################################################################################
+        for params in model.parameters():
+            params.requires_grad = False
+        
+        output.requires_grad = True
+        if output.grad is not None:
+            output.grad.zero_()
+        
+        for _ in range(self.num_steps):
+            output.requires_grad = True
+
+            softmax_conf = model(output)
+            least_conf = softmax_conf.argmin(1)
+
+            least_conf_loss = self.loss_fn(softmax_conf,least_conf)
+            least_conf_loss.backward()
+
+            adv_img = output + self.step_size*output.grad.sign()
+            adv_img_cut = torch.clamp(input - adv_img, min=-self.epsilon, max=self.epsilon)
+            output = torch.clamp(adv_img_cut + input, min=0, max=1).detach()
 
         return output
 
