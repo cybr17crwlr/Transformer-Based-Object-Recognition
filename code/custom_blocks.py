@@ -36,6 +36,7 @@ class PatchEmbed(nn.Module):
         )
 
     def forward(self, x):
+
         x = self.proj(x)
         # B C H W -> B H W C
         x = x.permute(0, 2, 3, 1)
@@ -122,6 +123,7 @@ class Attention(nn.Module):
         )
         # q, k, v with shape (B * nHead, H * W, C)
         q, k, v = qkv.reshape(3, B * self.num_heads, H * W, -1).unbind(0)
+    
         attn = (q * self.scale) @ k.transpose(-2, -1)
         attn = attn.softmax(dim=-1)
         x = (
@@ -298,7 +300,6 @@ class TransformerBlock(nn.Module):
         if self.window_size > 0:
             H, W = x.shape[1], x.shape[2]
             x, pad_hw = window_partition(x, self.window_size)
-
         x = self.attn(x)
         # Reverse window partition
         if self.window_size > 0:

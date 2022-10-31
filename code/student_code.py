@@ -301,6 +301,28 @@ class SimpleViT(nn.Module):
             )
         else:
             self.pos_embed = None
+        
+        if use_abs_pos:
+            # Initialize absolute positional embedding with image size
+            # The embedding is learned from data
+            self.pos_embed_16 = nn.Parameter(
+                torch.zeros(
+                    1, img_size // (int(patch_size/2)), img_size // (int(patch_size/2)), embed_dim
+                )
+            )
+        else:
+            self.pos_embed_16 = None
+            
+        if use_abs_pos:
+            # Initialize absolute positional embedding with image size
+            # The embedding is learned from data
+            self.pos_embed_4 = nn.Parameter(
+                torch.zeros(
+                    1, img_size // (int(patch_size*2)), img_size // (int(patch_size*2)), embed_dim
+                )
+            )
+        else:
+            self.pos_embed_4 = None
 
         # stochastic depth decay rule
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
@@ -310,6 +332,55 @@ class SimpleViT(nn.Module):
         ########################################################################
         # the implementation shall start from embedding patches,
         # followed by some transformer blocks
+        self.embed_layer = PatchEmbed(kernel_size=(patch_size,patch_size),
+                                      stride=(patch_size,patch_size),
+                                      in_chans=in_chans,
+                                      embed_dim=embed_dim) #8*8*192
+        
+        self.embed_layer_patchChange_16 = PatchEmbed(kernel_size=(int(patch_size/2),int(patch_size/2)),
+                                      stride=(int(patch_size/2),int(patch_size/2)),
+                                      in_chans=in_chans,
+                                      embed_dim=embed_dim) #16*16*192
+        
+        
+        self.embed_layer_patchChange_4 = PatchEmbed(kernel_size=(patch_size*2,patch_size*2),
+                                      stride=(patch_size*2,patch_size*2),
+                                      in_chans=in_chans,
+                                      embed_dim=embed_dim) #4*4*192
+        
+        
+        transformer_seq = [TransformerBlock(dim=embed_dim,
+                                            num_heads=num_heads,
+                                            mlp_ratio=mlp_ratio,
+                                            qkv_bias=qkv_bias,
+                                            drop_path=drop_path_,
+                                            norm_layer=norm_layer,
+                                            act_layer=act_layer,
+                                            window_size=window_size) for drop_path_ in dpr]
+        
+        transformer_seq_16 = [TransformerBlock(dim=embed_dim,
+                                            num_heads=num_heads,
+                                            mlp_ratio=mlp_ratio,
+                                            qkv_bias=qkv_bias,
+                                            drop_path=drop_path_,
+                                            norm_layer=norm_layer,
+                                            act_layer=act_layer,
+                                            window_size=window_size) for drop_path_ in dpr]
+        
+        transformer_seq_4 = [TransformerBlock(dim=embed_dim,
+                                            num_heads=num_heads,
+                                            mlp_ratio=mlp_ratio,
+                                            qkv_bias=qkv_bias,
+                                            drop_path=drop_path_,
+                                            norm_layer=norm_layer,
+                                            act_layer=act_layer,
+                                            window_size=window_size) for drop_path_ in dpr]
+        self.transformers = torch.nn.Sequential(*transformer_seq)
+        self.transformers16 = torch.nn.Sequential(*transformer_seq_16)
+        self.transformers4 = torch.nn.Sequential(*transformer_seq_4)
+
+        self.avgpool = nn.AdaptiveAvgPool3d((1, 1, embed_dim))
+        self.fc = nn.Linear(embed_dim*3, num_classes)
 
         if self.pos_embed is not None:
             trunc_normal_(self.pos_embed, std=0.02)
@@ -330,6 +401,40 @@ class SimpleViT(nn.Module):
         ########################################################################
         # Fill in the code here
         ########################################################################
+        copyx16 = torch.clone(x);
+        copyx4 = torch.clone(x);
+        x = self.embed_layer(x)
+        if self.pos_embed is not None:
+            pos_embed = self.pos_embed.expand(x.size())
+            x = x+pos_embed
+        x = self.transformers(x)
+        x = self.avgpool(x)
+        x = x.view(x.size(0),-1)
+        
+        ##BLOCK2 
+        
+        x16 = self.embed_layer_patchChange_16(copyx16)
+        if self.pos_embed_16 is not None:
+            pos_embed = self.pos_embed_16.expand(x16.size())
+            x16 = x16+pos_embed
+        x16 = self.transformers16(x16)
+        x16 = self.avgpool(x16)
+        x16 = x16.view(x16.size(0),-1)
+        
+
+        ##BLOCK3
+        
+        x4 = self.embed_layer_patchChange_4(copyx4)
+        if self.pos_embed_4 is not None:
+            pos_embed = self.pos_embed_4.expand(x4.size())
+            x4 = x4+pos_embed
+        x4 = self.transformers4(x4)
+        x4 = self.avgpool(x4)
+        x4 = x4.view(x4.size(0),-1)
+        
+        x = torch.stack((x,x16,x4),1)
+        x = torch.reshape(x, (x.size()[0], -1))
+        x = self.fc(x)
         return x
 
 
@@ -447,8 +552,20 @@ class GradAttention(object):
         #################################################################################
         # Fill in the code here
         #################################################################################
+        for params in model.parameters():
+            params.requires_grad = False
 
-        return output
+        model.eval()
+
+        softmax_conf = model(input)
+        most_conf = softmax_conf.argmax(1)
+
+        most_conf_loss = self.loss_fn(softmax_conf,most_conf)
+        most_conf_loss.backward()
+
+        saliency, _ = input.grad.data.abs().max(1)
+
+        return saliency.unsqueeze(1)
 
 
 default_attention = GradAttention
