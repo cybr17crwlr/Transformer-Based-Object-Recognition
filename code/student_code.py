@@ -440,6 +440,7 @@ class PGDAttack(object):
             output.grad.zero_()
         
         for _ in range(self.num_steps):
+            output.requires_grad = True
 
             softmax_conf = model(output)
             least_conf = softmax_conf.argmin(1)
@@ -449,7 +450,7 @@ class PGDAttack(object):
 
             adv_img = output + self.step_size*output.grad.sign()
             adv_img_cut = torch.clamp(input - adv_img, min=-self.epsilon, max=self.epsilon)
-            output = torch.clamp(adv_img_cut + input, min=0, max=1)
+            output = torch.clamp(adv_img_cut + input, min=0, max=1).detach()
 
         return output
 
