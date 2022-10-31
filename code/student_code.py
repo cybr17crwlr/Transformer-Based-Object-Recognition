@@ -449,10 +449,9 @@ class PGDAttack(object):
             least_conf_loss.backward()
 
             adv_img = output + self.step_size*output.grad.sign()
-            adv_img_cut = torch.clamp(input - adv_img, min=-self.epsilon, max=self.epsilon)
-            output = torch.clamp(adv_img_cut + input, min=0, max=1).detach()
+            adv_img_cut = torch.clamp(adv_img, min=input-self.epsilon, max=input+self.epsilon).detach()
 
-        return output
+        return adv_img_cut
 
 
 default_attack = PGDAttack
