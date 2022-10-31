@@ -322,7 +322,8 @@ class SimpleViT(nn.Module):
                                             drop_path=drop_path_,
                                             norm_layer=norm_layer,
                                             act_layer=act_layer,
-                                            window_size=window_size) for drop_path_ in dpr]
+                                            window_size=window_size if layer in window_block_indexes else 0) 
+                                            for layer, drop_path_ in enumerate(dpr)]
         self.transformers = torch.nn.Sequential(*transformer_seq)
 
         self.avgpool = nn.AdaptiveAvgPool3d((1, 1, embed_dim))
