@@ -402,7 +402,7 @@ class CustomViT(nn.Module):
 
         Feel free to modify the default parameters here.
         """
-        super(SimpleViT, self).__init__()
+        super(CustomViT, self).__init__()
 
         if use_abs_pos:
             # Initialize absolute positional embedding with image size
