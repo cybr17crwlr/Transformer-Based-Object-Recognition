@@ -485,10 +485,6 @@ def validate(val_loader, model, epoch, args, attacker=None, visualizer=None):
                     vis_adv_input = default_visfunction(adv_input)
                     writer.add_image("Image/Org_Image", vis_input, i)
                     writer.add_image("Image/Adv_Image", vis_adv_input, i)
-                    writer.add_scalars("data/top1_accuracy", {"val": top1.avg}, epoch + 1)
-                    writer.add_scalars("data/top5_accuracy", {"val": top5.avg}, epoch + 1)
-                    writer.add_scalars("data/top1_accuracy", {"val": top1.avg}, epoch + 61)
-                    writer.add_scalars("data/top5_accuracy", {"val": top5.avg}, epoch + 61)
 
     print(
         "******Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}".format(top1=top1, top5=top5)
