@@ -350,7 +350,7 @@ class SimpleViT(nn.Module):
         ########################################################################
         x = self.embed_layer(x)
         if self.pos_embed is not None:
-            pos_embed = self.pos_embed.expand(x.size(0))
+            pos_embed = self.pos_embed.expand(x.size())
             x = x+pos_embed
         x = self.transformers(x)
         x = self.avgpool(x)
@@ -491,7 +491,7 @@ class CustomViT(nn.Module):
                                             act_layer=act_layer,
                                             window_size=window_size if layer in window_block_indexes else 0) 
                                             for layer, drop_path_ in enumerate(dpr)]
-                                            
+
         self.transformers = torch.nn.Sequential(*transformer_seq)
         self.transformers16 = torch.nn.Sequential(*transformer_seq_16)
         self.transformers4 = torch.nn.Sequential(*transformer_seq_4)
