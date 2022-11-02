@@ -34,6 +34,7 @@ from student_code import (
     CustomConv2d,
     default_cnn_model,
     default_vit_model,
+    custom_model,
     get_train_transforms,
     get_val_transforms,
 )
@@ -129,6 +130,9 @@ parser.add_argument(
     "--use-vit", action="store_true", help="Use vision Transformer"
 )
 parser.add_argument(
+    "--use-custommodel", action="store_true", help="Use Self Designed Model"
+)
+parser.add_argument(
     "--use-resnet18", action="store_true", help="Use pretrained resnet18 model"
 )
 parser.add_argument("--gpu", default=0, type=int, help="GPU ID to use.")
@@ -165,6 +169,8 @@ def main(args):
         model.fc = nn.Linear(512, 100)
     elif args.use_vit:
         model = default_vit_model(num_classes=100)
+    elif args.use_custommodel:
+        model = custom_model(num_classes=100)
     else:
         model = default_cnn_model(num_classes=100)
     model_arch = "simplenet"
@@ -175,7 +181,7 @@ def main(args):
         criterion = criterion.cuda(args.gpu)
 
     # setup the optimizer
-    if not args.use_vit:
+    if not (args.use_vit or args.use_custommodel):
         optimizer = torch.optim.SGD(
             model.parameters(),
             args.lr,
@@ -368,7 +374,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
         # compute gradient and do one SGD step
         loss.backward()
         # clip the grads to stablize training (for ViT)
-        if args.use_vit and (args.clip_grad > 0.0):
+        if (args.use_vit or args.use_custommodel) and (args.clip_grad > 0.0):
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(),
                 args.clip_grad
