@@ -2,3 +2,8 @@
 data
 *.ipynb
 *.pyc
+*.zip
+*.csv
+*.png
+*.jpg
+*.jpeg
